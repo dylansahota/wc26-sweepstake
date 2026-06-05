@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
-import { chromium } from 'playwright'
+import { chromium, type Page } from 'playwright'
 import { getFifaSquadSlugCandidates } from '../lib/fifa-squad-slugs'
 
 dotenv.config({ path: '.env.local' })
@@ -113,7 +113,7 @@ function parseSquadText(text: string, teamId: string, sourceUrl: string): SquadM
   return dedupeMembers(rows)
 }
 
-async function getValidSquadPage(browserPage: Awaited<ReturnType<ReturnType<typeof chromium.launch>['newPage']>>, teamName: string) {
+async function getValidSquadPage(browserPage: Page, teamName: string) {
   for (const slug of getFifaSquadSlugCandidates(teamName)) {
     const sourceUrl = `https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/teams/${slug}/squad`
     await browserPage.goto(sourceUrl, { waitUntil: 'domcontentloaded', timeout: 45000 })

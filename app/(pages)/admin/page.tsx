@@ -1,80 +1,24 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import NavBar from '@/app/components/NavBar'
 
-interface MatchItem {
-  id: string
-  stage: string
-  group_name: string | null
-  kickoff_utc: string
-  home_team_id: string | null
-  away_team_id: string | null
-  home_placeholder: string | null
-  away_placeholder: string | null
-  home_score: number | null
-  away_score: number | null
-  status: 'scheduled' | 'finished'
-  homeTeam?: { id: string; name: string; code: string | null } | null
-  awayTeam?: { id: string; name: string; code: string | null } | null
-}
-
 export default function AdminPage() {
-  const [matches, setMatches] = useState<MatchItem[]>([])
-  const [selectedMatchId, setSelectedMatchId] = useState('')
-  const [homeScore, setHomeScore] = useState('')
-  const [awayScore, setAwayScore] = useState('')
-  const [status, setStatus] = useState<'scheduled' | 'finished'>('finished')
   const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  async function load() {
-    const res = await fetch('/api/matches', { cache: 'no-store' })
-    const payload = (await res.json()) as { matches?: MatchItem[]; error?: string }
-    if (!res.ok || !payload.matches) {
-      setMessage(payload.error ?? 'Failed to load matches')
-      return
-    }
-    setMatches(payload.matches)
-    setMessage('')
-  }
+  async function syncResults() {
+    setBusy(true)
+    const res = await fetch('/api/matches/sync', { method: 'POST' })
+    const payload = (await res.json()) as { error?: string; syncedMatches?: number }
+    setBusy(false)
 
-  useEffect(() => {
-    const initial = setTimeout(() => {
-      void load()
-    }, 0)
-    return () => clearTimeout(initial)
-  }, [])
-
-  function onSelectMatch(matchId: string) {
-    setSelectedMatchId(matchId)
-    const match = matches.find((item) => item.id === matchId)
-    setHomeScore(match?.home_score != null ? String(match.home_score) : '')
-    setAwayScore(match?.away_score != null ? String(match.away_score) : '')
-    setStatus(match?.status ?? 'finished')
-  }
-
-  async function save() {
-    if (!selectedMatchId) {
-      setMessage('Pick a match first')
-      return
-    }
-    const res = await fetch('/api/matches', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        matchId: selectedMatchId,
-        homeScore: homeScore === '' ? null : Number(homeScore),
-        awayScore: awayScore === '' ? null : Number(awayScore),
-        status,
-      }),
-    })
-    const payload = (await res.json()) as { error?: string }
     if (!res.ok) {
-      setMessage(payload.error ?? 'Failed to save')
+      setMessage(payload.error ?? 'Sync failed')
       return
     }
-    setMessage('Saved')
-    await load()
+
+    setMessage(`Synced ${payload.syncedMatches ?? 0} football-data matches and recalculated standings.`)
   }
 
   async function resetForTesting() {
@@ -83,21 +27,19 @@ export default function AdminPage() {
     )
     if (!confirmed) return
 
+    setBusy(true)
+
     const res = await fetch('/api/admin/reset', {
       method: 'POST',
     })
     const payload = (await res.json()) as { error?: string }
+    setBusy(false)
     if (!res.ok) {
       setMessage(payload.error ?? 'Reset failed')
       return
     }
 
-    setSelectedMatchId('')
-    setHomeScore('')
-    setAwayScore('')
-    setStatus('finished')
     setMessage('Reset complete')
-    await load()
   }
 
   return (
@@ -106,58 +48,18 @@ export default function AdminPage() {
 
       <section className="card">
         <h1 className="title">Results Admin (Dylan Only)</h1>
-        <p className="muted">Enter per-match scores. Team progression and points recalculate automatically.</p>
+        <p className="muted">Live scores should come from football-data. Manual match entry is no longer part of the normal flow.</p>
       </section>
 
       <section className="card">
-        <label className="field-label">Match</label>
-        <select className="field" value={selectedMatchId} onChange={(e) => onSelectMatch(e.target.value)}>
-          <option value="">Select a match...</option>
-          {matches.map((match) => (
-            <option key={match.id} value={match.id}>
-              {match.homeTeam?.name ?? match.home_placeholder ?? 'TBD'} vs {match.awayTeam?.name ?? match.away_placeholder ?? 'TBD'} ({match.stage})
-            </option>
-          ))}
-        </select>
-
-        <div className="form-grid" style={{ marginTop: 12 }}>
-          <label>
-            Home score
-            <input
-              className="field"
-              type="number"
-              min={0}
-              value={homeScore}
-              onChange={(e) => setHomeScore(e.target.value)}
-            />
-          </label>
-          <label>
-            Away score
-            <input
-              className="field"
-              type="number"
-              min={0}
-              value={awayScore}
-              onChange={(e) => setAwayScore(e.target.value)}
-            />
-          </label>
-          <label>
-            Status
-            <select className="field" value={status} onChange={(e) => setStatus(e.target.value as 'scheduled' | 'finished')}>
-              <option value="scheduled">scheduled</option>
-              <option value="finished">finished</option>
-            </select>
-          </label>
-        </div>
+        <h2 className="subhead">Data Controls</h2>
+        <p className="muted">Use sync to pull the latest World Cup fixtures and scores, then recalculate all team and player totals.</p>
 
         <div className="row" style={{ marginTop: 16 }}>
-          <button className="primary-btn" type="button" onClick={save}>
-            Save Match Result
+          <button className="primary-btn" type="button" onClick={syncResults} disabled={busy}>
+            Sync football-data results
           </button>
-          <button className="ghost-btn" type="button" onClick={load}>
-            Reload
-          </button>
-          <button className="ghost-btn" type="button" onClick={resetForTesting}>
+          <button className="ghost-btn" type="button" onClick={resetForTesting} disabled={busy}>
             Reset Testing Data
           </button>
         </div>

@@ -37,7 +37,6 @@ export async function GET(req: NextRequest) {
   }))
 
   const teamNamesById = new Map((teams ?? []).map((team) => [team.id as string, team.name as string]))
-
   const history = buildScoringHistory(
     (players ?? []) as HistoryPlayerRow[],
     normalizedPicks as HistoryPickRow[],
@@ -45,5 +44,5 @@ export async function GET(req: NextRequest) {
     teamNamesById
   )
 
-  return NextResponse.json({ dates: history.dates, playerSeries: history.playerSeries, teamSeries: history.teamSeries })
+  return NextResponse.json({ matches: history.matches })
 }

@@ -26,6 +26,10 @@ interface SquadMemberRow {
   shirt_number: number | null
 }
 
+interface SquadMemberQueryRow extends SquadMemberRow {
+  team_id: string
+}
+
 interface DraftStateRow {
   id: number
   player_order: string[]
@@ -60,20 +64,45 @@ export async function getDraftPicks() {
   return data ?? []
 }
 
+async function getAllSquadMembers(): Promise<SquadMemberQueryRow[]> {
+  const rows: SquadMemberQueryRow[] = []
+  const pageSize = 500
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1
+    const { data, error } = await supabaseAdmin
+      .from('team_squad_members')
+      .select('id, team_id, name, position, squad_role, shirt_number')
+      .order('team_id', { ascending: true })
+      .order('squad_role', { ascending: true })
+      .order('position', { ascending: true })
+      .order('name', { ascending: true })
+      .range(from, to)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    const page = (data ?? []) as SquadMemberQueryRow[]
+    rows.push(...page)
+
+    if (page.length < pageSize) {
+      break
+    }
+  }
+
+  return rows
+}
+
 export async function getTeams() {
-  const [{ data: teams }, { data: matches }, { data: squadMembers }] = await Promise.all([
+  const [{ data: teams }, { data: matches }, squadMembers] = await Promise.all([
     supabaseAdmin.from('teams').select('id, name, code, tier'),
     supabaseAdmin
       .from('matches')
       .select('group_name, home_team_id, away_team_id')
       .eq('stage', 'GROUP')
       .not('group_name', 'is', null),
-    supabaseAdmin
-      .from('team_squad_members')
-      .select('id, team_id, name, position, squad_role, shirt_number')
-      .order('squad_role', { ascending: true })
-      .order('position', { ascending: true })
-      .order('name', { ascending: true }),
+    getAllSquadMembers(),
   ])
 
   const groupByTeamId = new Map<string, string>()

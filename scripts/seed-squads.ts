@@ -32,6 +32,33 @@ const POSITION_HEADINGS: ReadonlyArray<{ heading: string; position: SquadPositio
   { heading: 'Forward', position: 'FORWARD' },
 ] as const
 
+const POSITION_LABELS: Record<SquadPosition, string> = {
+  GOALKEEPER: 'GOALKEEPER',
+  DEFENDER: 'DEFENDER',
+  MIDFIELDER: 'MIDFIELDER',
+  FORWARD: 'FORWARD',
+}
+
+const NOISE_LINES = new Set([
+  'Skip to main content',
+  'FIFA REWARDS',
+  'FIFA+',
+  'FIFA STORE',
+  'FIFA COLLECT',
+  '|',
+  'English',
+  'FIFA WORLD CUP 2026™',
+  'MATCHES',
+  'STANDINGS',
+  'TEAMS & STATS',
+  'NEWS',
+  'FANTASY & GAMING',
+  'MORE',
+  'News',
+  'Fixtures',
+  'Squad',
+])
+
 function isUppercaseLabel(line: string): boolean {
   return ['GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'FORWARD', 'MANAGER'].includes(line)
 }
@@ -40,13 +67,51 @@ function cleanLine(line: string): string {
   return line.replace(/\s+/g, ' ').trim()
 }
 
-function looksLikePlayerName(line: string): boolean {
+function looksLikeSquadName(line: string): boolean {
   if (!line) return false
   if (line.length < 3) return false
   if (/^(News|Fixtures|Squad|Manager|Goalkeeper|Defender|Midfielder|Forward)$/.test(line)) return false
   if (isUppercaseLabel(line)) return false
   if (/^(We Care About Your Privacy|I Accept|Reject All|Show Purposes|Skip to main content)$/.test(line)) return false
   return /[A-Za-z]/.test(line)
+}
+
+function normalizeSquadLines(text: string): string[] {
+  const lines = text
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(cleanLine)
+    .filter(Boolean)
+
+  const firstHeadingIndex = lines.findIndex((line) => POSITION_HEADINGS.some((entry) => entry.heading === line))
+  if (firstHeadingIndex === -1) {
+    return []
+  }
+
+  const relevantLines: string[] = []
+  for (const line of lines.slice(firstHeadingIndex)) {
+    if (line === 'We Care About Your Privacy') break
+    if (NOISE_LINES.has(line)) continue
+    relevantLines.push(line)
+  }
+
+  return relevantLines
+}
+
+function parseSectionMembers(lines: string[], label: string): string[] {
+  const names: string[] = []
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (!looksLikeSquadName(line)) continue
+
+    if (lines[index + 1] !== label) continue
+
+    names.push(line)
+    index += 1
+  }
+
+  return names
 }
 
 function dedupeMembers(rows: SquadMemberRow[]): SquadMemberRow[] {
@@ -60,51 +125,34 @@ function dedupeMembers(rows: SquadMemberRow[]): SquadMemberRow[] {
 }
 
 function parseSquadText(text: string, teamId: string, sourceUrl: string): SquadMemberRow[] {
-  const lines = text
-    .split('\n')
-    .map(cleanLine)
-    .filter(Boolean)
+  const lines = normalizeSquadLines(text)
+
+  if (lines.length === 0) {
+    return []
+  }
 
   const rows: SquadMemberRow[] = []
-  let currentPosition: SquadPosition | null = null
-  let currentRole: 'player' | 'manager' = 'player'
 
-  for (const line of lines) {
-    const positionHeading = POSITION_HEADINGS.find((entry) => entry.heading === line)
-    if (positionHeading) {
-      currentPosition = positionHeading.position
-      currentRole = 'player'
-      continue
-    }
-
-    if (line === 'Manager') {
-      currentPosition = null
-      currentRole = 'manager'
-      continue
-    }
-
-    if (!looksLikePlayerName(line)) continue
-
-    if (currentRole === 'manager') {
+  for (const { position } of POSITION_HEADINGS) {
+    for (const name of parseSectionMembers(lines, POSITION_LABELS[position])) {
       rows.push({
         team_id: teamId,
-        name: line,
-        position: 'MANAGER',
-        squad_role: 'manager',
+        name,
+        position,
+        squad_role: 'player',
         shirt_number: null,
         source_url: sourceUrl,
       })
-      currentRole = 'player'
-      continue
     }
+  }
 
-    if (!currentPosition) continue
-
+  const managerName = parseSectionMembers(lines, 'MANAGER').at(-1)
+  if (managerName) {
     rows.push({
       team_id: teamId,
-      name: line,
-      position: currentPosition,
-      squad_role: 'player',
+      name: managerName,
+      position: 'MANAGER',
+      squad_role: 'manager',
       shirt_number: null,
       source_url: sourceUrl,
     })
@@ -117,14 +165,29 @@ async function getValidSquadPage(browserPage: Page, teamName: string) {
   for (const slug of getFifaSquadSlugCandidates(teamName)) {
     const sourceUrl = `https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/teams/${slug}/squad`
     await browserPage.goto(sourceUrl, { waitUntil: 'domcontentloaded', timeout: 45000 })
-    await browserPage.waitForTimeout(1000)
+
+    try {
+      await browserPage.waitForFunction(
+        () => {
+          const text = document.body.innerText
+          return text.includes('Squad') && text.includes('Goalkeeper') && text.includes('Manager')
+        },
+        { timeout: 15000 }
+      )
+    } catch {
+      continue
+    }
 
     const text = await browserPage.locator('body').innerText()
     if (text.includes("Come on referee, you weren't supposed to see this!")) {
       continue
     }
 
-    if (text.includes('Squad') && POSITION_HEADINGS.some((entry) => text.includes(entry.heading))) {
+    const parsedMembers = parseSquadText(text, 'validation', sourceUrl)
+    const playerCount = parsedMembers.filter((member) => member.squad_role === 'player').length
+    const managerCount = parsedMembers.filter((member) => member.squad_role === 'manager').length
+
+    if (playerCount >= 23 && managerCount >= 1) {
       return { sourceUrl, text }
     }
   }

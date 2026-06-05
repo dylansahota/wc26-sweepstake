@@ -34,16 +34,24 @@ interface PlayerScore {
 }
 
 interface ScoreHistorySeries {
-  playerId: string
-  name: string
+  entityId: string
+  label: string
   colour: string
   totals: number[]
+  ownerId?: string
+  ownerName?: string
 }
 
 export default function LeaderboardPage() {
   const [rows, setRows] = useState<PlayerScore[]>([])
-  const [history, setHistory] = useState<{ dates: string[]; series: ScoreHistorySeries[] }>({ dates: [], series: [] })
+  const [history, setHistory] = useState<{ dates: string[]; playerSeries: ScoreHistorySeries[]; teamSeries: ScoreHistorySeries[] }>({
+    dates: [],
+    playerSeries: [],
+    teamSeries: [],
+  })
   const [error, setError] = useState('')
+  const [chartView, setChartView] = useState<'players' | 'teams'>('players')
+  const [teamOwnerFilter, setTeamOwnerFilter] = useState<string>('all')
 
   async function load() {
     const [leaderboardRes, historyRes] = await Promise.all([
@@ -54,7 +62,8 @@ export default function LeaderboardPage() {
     const leaderboardPayload = (await leaderboardRes.json()) as { leaderboard?: PlayerScore[]; error?: string }
     const historyPayload = (await historyRes.json()) as {
       dates?: string[]
-      series?: ScoreHistorySeries[]
+      playerSeries?: ScoreHistorySeries[]
+      teamSeries?: ScoreHistorySeries[]
       error?: string
     }
 
@@ -63,13 +72,17 @@ export default function LeaderboardPage() {
       return
     }
 
-    if (!historyRes.ok || !historyPayload.dates || !historyPayload.series) {
+    if (!historyRes.ok || !historyPayload.dates || !historyPayload.playerSeries || !historyPayload.teamSeries) {
       setError(historyPayload.error ?? 'Failed to load score history')
       return
     }
 
     setRows(leaderboardPayload.leaderboard)
-    setHistory({ dates: historyPayload.dates, series: historyPayload.series })
+    setHistory({
+      dates: historyPayload.dates,
+      playerSeries: historyPayload.playerSeries,
+      teamSeries: historyPayload.teamSeries,
+    })
     setError('')
   }
 
@@ -89,11 +102,32 @@ export default function LeaderboardPage() {
     return Math.max(...rows.map((r) => r.totalPoints), 1)
   }, [rows])
 
+  const teamOwnerOptions = useMemo(() => {
+    const owners = new Map<string, string>()
+    for (const series of history.teamSeries) {
+      if (!series.ownerId || !series.ownerName) continue
+      owners.set(series.ownerId, series.ownerName)
+    }
+    return Array.from(owners.entries()).sort((left, right) => left[1].localeCompare(right[1]))
+  }, [history.teamSeries])
+
+  const visibleSeries = useMemo(() => {
+    if (chartView === 'players') {
+      return history.playerSeries
+    }
+
+    if (teamOwnerFilter === 'all') {
+      return history.teamSeries
+    }
+
+    return history.teamSeries.filter((series) => series.ownerId === teamOwnerFilter)
+  }, [chartView, history.playerSeries, history.teamSeries, teamOwnerFilter])
+
   const chartData = useMemo(() => {
     return {
       labels: history.dates,
-      datasets: history.series.map((series, index) => ({
-        label: series.name,
+      datasets: visibleSeries.map((series, index) => ({
+        label: series.ownerName && chartView === 'teams' ? `${series.label} · ${series.ownerName}` : series.label,
         data: series.totals,
         borderColor: series.colour,
         backgroundColor: `${series.colour}22`,
@@ -103,7 +137,7 @@ export default function LeaderboardPage() {
         borderDash: index % 2 === 0 ? [] : [6, 4],
       })),
     }
-  }, [history.dates, history.series])
+  }, [chartView, history.dates, visibleSeries])
 
   return (
     <main className="app-shell">
@@ -117,9 +151,42 @@ export default function LeaderboardPage() {
       {error ? <p className="error-text">{error}</p> : null}
 
       <section className="card">
-        <h2 className="subhead">Score Progression</h2>
+        <div className="row split section-toolbar">
+          <div>
+            <h2 className="subhead">Score Progression</h2>
+            <p className="muted">Matchdays are grouped by fixture date.</p>
+          </div>
+          <div className="row">
+            <button
+              type="button"
+              className={chartView === 'players' ? 'primary-btn' : 'ghost-btn'}
+              onClick={() => setChartView('players')}
+            >
+              Players
+            </button>
+            <button
+              type="button"
+              className={chartView === 'teams' ? 'primary-btn' : 'ghost-btn'}
+              onClick={() => setChartView('teams')}
+            >
+              Teams
+            </button>
+            {chartView === 'teams' ? (
+              <select className="field chart-filter" value={teamOwnerFilter} onChange={(event) => setTeamOwnerFilter(event.target.value)}>
+                <option value="all">All players</option>
+                {teamOwnerOptions.map(([ownerId, ownerName]) => (
+                  <option key={ownerId} value={ownerId}>
+                    {ownerName}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
+        </div>
         {history.dates.length === 0 ? (
           <p className="muted">No finished matches yet.</p>
+        ) : visibleSeries.length === 0 ? (
+          <p className="muted">No drafted teams for the selected player yet.</p>
         ) : (
           <div style={{ height: 280 }}>
             <Line
@@ -129,6 +196,7 @@ export default function LeaderboardPage() {
                 maintainAspectRatio: false,
                 plugins: {
                   legend: {
+                    display: chartView === 'players' || visibleSeries.length <= 12,
                     labels: { color: '#9eb3c6' },
                   },
                 },

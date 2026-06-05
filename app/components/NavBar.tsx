@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 
 const LINKS = [
   { href: '/draft', label: 'Draft' },
+  { href: '/groups', label: 'Groups' },
+  { href: '/results', label: 'Results' },
   { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/bracket', label: 'Bracket' },
   { href: '/admin', label: 'Admin' },

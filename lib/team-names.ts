@@ -15,6 +15,8 @@ const TEAM_ALIASES: Record<string, string> = {
   'Cura\u00e7ao': 'Curacao',
   Turkiye: 'Turkey',
   'T\u00fcrkiye': 'Turkey',
+  'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
+  'Bosnia & Herzegovina': 'Bosnia and Herzegovina',
 }
 
 export function normalizeTeamName(name?: string | null): string | null {

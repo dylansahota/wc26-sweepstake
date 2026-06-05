@@ -149,7 +149,7 @@ export default function DraftPage() {
     <main className="app-shell">
       <NavBar />
 
-      <section className="card split">
+      <section className="card split draft-hero">
         <div>
           <h1 className="title">WC26 Sweepstake Draft</h1>
           <p className="muted">Snake draft, 9 rounds, 45 picks total.</p>
@@ -184,8 +184,8 @@ export default function DraftPage() {
         )}
       </section>
 
-      <section className="two-col-grid">
-        <article className="card">
+      <section className="two-col-grid draft-grid">
+        <article className="card draft-available-card">
           <h2 className="subhead">Available Teams</h2>
           <div className="team-grid">
             {(data?.availableTeams ?? []).map((team) => (
@@ -219,7 +219,7 @@ export default function DraftPage() {
           </div>
         </article>
 
-        <article className="card">
+        <article className="card draft-scout-card">
           <h2 className="subhead">Team Scout</h2>
           {!selectedTeam ? (
             <p className="muted">Select a team to inspect its official FIFA squad.</p>

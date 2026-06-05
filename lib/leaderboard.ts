@@ -61,7 +61,8 @@ function emptyProgress(teamId: string): TeamProgress {
 export function buildLeaderboard(
   players: PlayerRow[],
   picks: PickRow[],
-  progressRows: ProgressRow[]
+  progressRows: ProgressRow[],
+  thirdPlaceBonusByTeam = new Map<string, number>()
 ): PlayerSummary[] {
   const progressByTeam = new Map(progressRows.map((row) => [row.team_id, row]))
 
@@ -71,7 +72,7 @@ export function buildLeaderboard(
       const tier = pick.teams?.tier ?? 3
       const progress = progressByTeam.get(pick.team_id) ?? emptyProgress(pick.team_id)
       const multiplier = getTierMultiplier(tier)
-      const score = buildTeamScoreBreakdown(progress, multiplier)
+      const score = buildTeamScoreBreakdown(progress, multiplier, thirdPlaceBonusByTeam.get(pick.team_id) ?? 0)
 
       return {
         teamId: pick.team_id,

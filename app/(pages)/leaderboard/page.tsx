@@ -42,6 +42,26 @@ interface ScoreHistorySeries {
   ownerName?: string
 }
 
+interface TeamRow {
+  teamId: string
+  teamName: string
+  ownerId: string
+  ownerName: string
+  ownerColour: string
+  tier: 1 | 2 | 3
+  currentPoints: number
+}
+
+function formatWeekdayLabel(value: string) {
+  const date = new Date(`${value}T00:00:00Z`)
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
+}
+
 export default function LeaderboardPage() {
   const [rows, setRows] = useState<PlayerScore[]>([])
   const [history, setHistory] = useState<{ dates: string[]; playerSeries: ScoreHistorySeries[]; teamSeries: ScoreHistorySeries[] }>({
@@ -111,6 +131,29 @@ export default function LeaderboardPage() {
     return Array.from(owners.entries()).sort((left, right) => left[1].localeCompare(right[1]))
   }, [history.teamSeries])
 
+  const teamRows = useMemo(() => {
+    const rowsList: TeamRow[] = []
+
+    for (const player of rows) {
+      for (const team of player.teams) {
+        rowsList.push({
+          teamId: team.teamId,
+          teamName: team.teamName,
+          ownerId: player.id,
+          ownerName: player.name,
+          ownerColour: player.colour,
+          tier: team.tier,
+          currentPoints: team.totalPoints,
+        })
+      }
+    }
+
+    return rowsList.sort((left, right) => {
+      if (right.currentPoints !== left.currentPoints) return right.currentPoints - left.currentPoints
+      return left.teamName.localeCompare(right.teamName)
+    })
+  }, [rows])
+
   const visibleSeries = useMemo(() => {
     if (chartView === 'players') {
       return history.playerSeries
@@ -125,7 +168,7 @@ export default function LeaderboardPage() {
 
   const chartData = useMemo(() => {
     return {
-      labels: history.dates,
+      labels: history.dates.map((value) => formatWeekdayLabel(value)),
       datasets: visibleSeries.map((series, index) => ({
         label: series.ownerName && chartView === 'teams' ? `${series.label} · ${series.ownerName}` : series.label,
         data: series.totals,
@@ -154,7 +197,7 @@ export default function LeaderboardPage() {
         <div className="row split section-toolbar">
           <div>
             <h2 className="subhead">Score Progression</h2>
-            <p className="muted">Matchdays are grouped by fixture date.</p>
+            <p className="muted">Player lines show progression by tournament weekday.</p>
           </div>
           <div className="row">
             <button
@@ -214,6 +257,27 @@ export default function LeaderboardPage() {
             />
           </div>
         )}
+      </section>
+
+      <section className="card">
+        <h2 className="subhead">Team Points Table</h2>
+        <p className="muted">Current points by team, including owner and tier multiplier context.</p>
+        <div className="team-points-table">
+          <div className="team-points-row team-points-head">
+            <span>Team</span>
+            <span>Owner</span>
+            <span>Tier</span>
+            <span>Points</span>
+          </div>
+          {teamRows.map((team) => (
+            <div key={team.teamId} className="team-points-row">
+              <span>{team.teamName}</span>
+              <span style={{ color: team.ownerColour }}>{team.ownerName}</span>
+              <span>T{team.tier}</span>
+              <strong>{team.currentPoints}</strong>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="card leaderboard-list">

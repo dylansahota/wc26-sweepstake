@@ -1,6 +1,6 @@
 import { getTierMultiplier } from '@/lib/domain'
 import { applyMatchToProgress, emptyProgress, MatchProgressRow, TeamProgressState } from '@/lib/progress'
-import { calculateBasePoints } from '@/lib/scoring'
+import { buildThirdPlaceBonusByTeam, calculateBasePoints } from '@/lib/scoring'
 
 export interface HistoryPlayerRow {
   id: string
@@ -89,12 +89,28 @@ interface TeamOwnership {
   playerColour: string
 }
 
+function toThirdPlaceBonusRows(matches: HistoryMatchRow[]) {
+  return matches.map((match) => ({
+    stage: match.stage,
+    status: match.status,
+    home_team_id: match.home_team_id,
+    away_team_id: match.away_team_id,
+    winner_team_id: match.winner_team_id,
+  }))
+}
+
 function cloneProgress(progress: TeamProgressState): TeamProgressState {
   return { ...progress }
 }
 
-function scoreTeam(progressByTeam: Map<string, TeamProgressState>, ownership: TeamOwnership): number {
-  return calculateBasePoints(progressByTeam.get(ownership.teamId) ?? emptyProgress()) * ownership.multiplier
+function scoreTeam(
+  progressByTeam: Map<string, TeamProgressState>,
+  ownership: TeamOwnership,
+  thirdPlaceBonusByTeam: Map<string, number>
+): number {
+  const basePoints = calculateBasePoints(progressByTeam.get(ownership.teamId) ?? emptyProgress())
+  const extraPoints = thirdPlaceBonusByTeam.get(ownership.teamId) ?? 0
+  return (basePoints + extraPoints) * ownership.multiplier
 }
 
 export function buildScoringHistory(
@@ -128,6 +144,7 @@ export function buildScoringHistory(
   }
 
   const sortedMatches = [...matches].sort((left, right) => left.kickoff_utc.localeCompare(right.kickoff_utc))
+  const thirdPlaceBonusByTeam = new Map<string, number>()
   const dates: string[] = []
   const playerSeriesMap = new Map<string, number[]>()
   const teamSeriesMap = new Map<string, number[]>()
@@ -142,7 +159,7 @@ export function buildScoringHistory(
         .reduce((sum, pick) => {
           const ownership = ownershipByTeamId.get(pick.team_id)
           if (!ownership) return sum
-          return sum + scoreTeam(progressByTeam, ownership)
+          return sum + scoreTeam(progressByTeam, ownership, thirdPlaceBonusByTeam)
         }, 0)
 
       const existing = playerSeriesMap.get(player.id) ?? []
@@ -152,7 +169,7 @@ export function buildScoringHistory(
 
     for (const ownership of ownershipByTeamId.values()) {
       const existing = teamSeriesMap.get(ownership.teamId) ?? []
-      existing.push(scoreTeam(progressByTeam, ownership))
+      existing.push(scoreTeam(progressByTeam, ownership, thirdPlaceBonusByTeam))
       teamSeriesMap.set(ownership.teamId, existing)
     }
   }
@@ -173,13 +190,20 @@ export function buildScoringHistory(
 
     applyMatchToProgress(progressByTeam, match)
 
+    const bonusForThisMatch = buildThirdPlaceBonusByTeam(toThirdPlaceBonusRows([match]))
+    for (const [teamId, delta] of bonusForThisMatch.entries()) {
+      thirdPlaceBonusByTeam.set(teamId, (thirdPlaceBonusByTeam.get(teamId) ?? 0) + delta)
+    }
+
     const teamImpacts: MatchHistoryTeamImpact[] = []
     const playerImpactMap = new Map<string, MatchHistoryPlayerImpact>()
 
     for (const teamId of relevantTeamIds) {
       const before = beforeByTeamId.get(teamId) ?? emptyProgress()
       const after = progressByTeam.get(teamId) ?? emptyProgress()
-      const baseDelta = calculateBasePoints(after) - calculateBasePoints(before)
+      const progressBaseDelta = calculateBasePoints(after) - calculateBasePoints(before)
+      const thirdPlaceBaseDelta = bonusForThisMatch.get(teamId) ?? 0
+      const baseDelta = progressBaseDelta + thirdPlaceBaseDelta
       const ownership = ownershipByTeamId.get(teamId)
 
       const teamImpact: MatchHistoryTeamImpact = {

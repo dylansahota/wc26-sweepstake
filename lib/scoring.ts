@@ -12,6 +12,34 @@ export interface TeamProgress {
   won_tournament: boolean
 }
 
+export const THIRD_PLACE_WIN_BASE_POINTS = 2
+
+export interface ThirdPlaceMatchBonusRow {
+  stage: string
+  status: string
+  home_team_id: string | null
+  away_team_id: string | null
+  winner_team_id: string | null
+}
+
+export function buildThirdPlaceBonusByTeam(matches: ThirdPlaceMatchBonusRow[]): Map<string, number> {
+  const bonusByTeam = new Map<string, number>()
+
+  for (const match of matches) {
+    if (match.stage !== 'THIRD_PLACE' || match.status !== 'finished') continue
+
+    const homeId = match.home_team_id
+    const awayId = match.away_team_id
+    const winnerId = match.winner_team_id
+
+    if (!homeId || !awayId || !winnerId) continue
+
+    bonusByTeam.set(winnerId, (bonusByTeam.get(winnerId) ?? 0) + THIRD_PLACE_WIN_BASE_POINTS)
+  }
+
+  return bonusByTeam
+}
+
 export function calculateBasePoints(p: TeamProgress): number {
   let pts = 0
   pts += p.group_wins * 4
@@ -45,8 +73,12 @@ export interface TeamScoreBreakdown {
   totalPoints: number
 }
 
-export function buildTeamScoreBreakdown(p: TeamProgress, multiplier: number): TeamScoreBreakdown {
-  const basePoints = calculateBasePoints(p)
+export function buildTeamScoreBreakdown(
+  p: TeamProgress,
+  multiplier: number,
+  extraBasePoints = 0
+): TeamScoreBreakdown {
+  const basePoints = calculateBasePoints(p) + extraBasePoints
   return {
     basePoints,
     multiplier,

@@ -52,6 +52,9 @@ export default function DraftPage() {
   const [error, setError] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [teamSearch, setTeamSearch] = useState('')
+  const [groupFilter, setGroupFilter] = useState('ALL')
+  const [tierFilter, setTierFilter] = useState('ALL')
 
   async function loadDraft() {
     const res = await fetch('/api/draft', { cache: 'no-store' })
@@ -91,6 +94,28 @@ export default function DraftPage() {
     if (!data) return null
     return data.teams.find((team) => team.id === selectedTeamId) ?? data.availableTeams[0] ?? data.teams[0] ?? null
   }, [data, selectedTeamId])
+
+  const availableGroups = useMemo(() => {
+    return Array.from(
+      new Set((data?.availableTeams ?? []).map((team) => team.groupName).filter((group): group is string => Boolean(group)))
+    ).sort((left, right) => left.localeCompare(right))
+  }, [data?.availableTeams])
+
+  const filteredAvailableTeams = useMemo(() => {
+    const query = teamSearch.toLowerCase().trim()
+
+    return (data?.availableTeams ?? []).filter((team) => {
+      if (groupFilter !== 'ALL' && team.groupName !== groupFilter) return false
+      if (tierFilter !== 'ALL' && String(team.tier) !== tierFilter) return false
+      if (!query) return true
+
+      return (
+        team.name.toLowerCase().includes(query) ||
+        team.code?.toLowerCase().includes(query) ||
+        team.groupName?.toLowerCase().includes(query)
+      )
+    })
+  }, [data?.availableTeams, groupFilter, teamSearch, tierFilter])
 
   const squadByPosition = useMemo(() => {
     const team = selectedTeam
@@ -187,15 +212,54 @@ export default function DraftPage() {
       <section className="two-col-grid draft-grid">
         <article className="card draft-available-card">
           <h2 className="subhead">Available Teams</h2>
-          <div className="team-grid">
-            {(data?.availableTeams ?? []).map((team) => (
+          <div className="draft-toolbar">
+            <input
+              className="field draft-filter"
+              placeholder="Search team, code, or group"
+              value={teamSearch}
+              onChange={(event) => setTeamSearch(event.target.value)}
+            />
+            <select className="field draft-filter" value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+              <option value="ALL">All groups</option>
+              {availableGroups.map((group) => (
+                <option key={group} value={group}>
+                  Group {group}
+                </option>
+              ))}
+            </select>
+            <select className="field draft-filter" value={tierFilter} onChange={(event) => setTierFilter(event.target.value)}>
+              <option value="ALL">All tiers</option>
+              <option value="1">Tier 1</option>
+              <option value="2">Tier 2</option>
+              <option value="3">Tier 3</option>
+            </select>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => {
+                setTeamSearch('')
+                setGroupFilter('ALL')
+                setTierFilter('ALL')
+              }}
+            >
+              Clear
+            </button>
+          </div>
+          <p className="muted draft-filter-summary">{filteredAvailableTeams.length} teams available after filters</p>
+          <div className="draft-card-body draft-team-list">
+            <div className="team-grid">
+            {filteredAvailableTeams.length === 0 ? <p className="muted">No teams match the current filters.</p> : null}
+            {filteredAvailableTeams.map((team) => (
               <div key={team.id} className={`team-card${selectedTeam?.id === team.id ? ' selected' : ''}`}>
                 <span className="team-main">
+                  <span className="team-badges">
+                    <span className="group-pill">{team.groupName ? `Group ${team.groupName}` : 'Group TBD'}</span>
+                    <span className="rank-pill">#{team.ranking ?? '-'}</span>
+                  </span>
                   <strong>{team.name}</strong>
                   <span className="team-meta">
-                    <span>#{team.ranking ?? '-'}</span>
-                    <span>{team.groupName ? `Group ${team.groupName}` : 'Group TBD'}</span>
                     <span>{team.code ?? 'N/A'}</span>
+                    <span>Tier {team.tier}</span>
                   </span>
                 </span>
                 <span className="team-side">
@@ -216,11 +280,13 @@ export default function DraftPage() {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </article>
 
         <article className="card draft-scout-card">
           <h2 className="subhead">Team Scout</h2>
+          <div className="draft-card-body draft-scout-body">
           {!selectedTeam ? (
             <p className="muted">Select a team to inspect its official FIFA squad.</p>
           ) : (
@@ -257,6 +323,7 @@ export default function DraftPage() {
               </div>
             </div>
           )}
+          </div>
         </article>
       </section>
 

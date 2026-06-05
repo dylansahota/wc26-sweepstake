@@ -116,7 +116,8 @@ function parseSquadText(text: string, teamId: string, sourceUrl: string): SquadM
 async function getValidSquadPage(browserPage: Awaited<ReturnType<ReturnType<typeof chromium.launch>['newPage']>>, teamName: string) {
   for (const slug of getFifaSquadSlugCandidates(teamName)) {
     const sourceUrl = `https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/teams/${slug}/squad`
-    await browserPage.goto(sourceUrl, { waitUntil: 'networkidle' })
+    await browserPage.goto(sourceUrl, { waitUntil: 'domcontentloaded', timeout: 45000 })
+    await browserPage.waitForTimeout(1000)
 
     const text = await browserPage.locator('body').innerText()
     if (text.includes("Come on referee, you weren't supposed to see this!")) {
@@ -137,6 +138,7 @@ async function seed() {
 
   const browser = await chromium.launch({ headless: true })
   const page = await browser.newPage()
+  const failures: string[] = []
 
   try {
     for (const team of teams ?? []) {
@@ -145,7 +147,9 @@ async function seed() {
       const validPage = await getValidSquadPage(page, teamName)
 
       if (!validPage) {
-        throw new Error(`Could not find a valid FIFA squad page for ${teamName}`)
+        failures.push(teamName)
+        console.log(`Skipped ${teamName} (no parsable FIFA squad page found)`)
+        continue
       }
 
       const members = parseSquadText(validPage.text, teamId, validPage.sourceUrl)
@@ -164,6 +168,10 @@ async function seed() {
   } finally {
     await page.close()
     await browser.close()
+  }
+
+  if (failures.length > 0) {
+    console.log(`Skipped ${failures.length} teams without parsable squads: ${failures.join(', ')}`)
   }
 
   console.log('Official FIFA squads seeded successfully')

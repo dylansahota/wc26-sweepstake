@@ -62,16 +62,20 @@ function formatWeekdayLabel(value: string) {
   }).format(date)
 }
 
+function rankBadgeClass(index: number): string {
+  if (index === 0) return 'rank-badge-1'
+  if (index === 1) return 'rank-badge-2'
+  if (index === 2) return 'rank-badge-3'
+  return 'rank-badge-other'
+}
+
 export default function LeaderboardPage() {
   const [rows, setRows] = useState<PlayerScore[]>([])
-  const [history, setHistory] = useState<{ dates: string[]; playerSeries: ScoreHistorySeries[]; teamSeries: ScoreHistorySeries[] }>({
+  const [history, setHistory] = useState<{ dates: string[]; playerSeries: ScoreHistorySeries[] }>({
     dates: [],
     playerSeries: [],
-    teamSeries: [],
   })
   const [error, setError] = useState('')
-  const [chartView, setChartView] = useState<'players' | 'teams'>('players')
-  const [teamOwnerFilter, setTeamOwnerFilter] = useState<string>('all')
 
   async function load() {
     const [leaderboardRes, historyRes] = await Promise.all([
@@ -92,7 +96,7 @@ export default function LeaderboardPage() {
       return
     }
 
-    if (!historyRes.ok || !historyPayload.dates || !historyPayload.playerSeries || !historyPayload.teamSeries) {
+    if (!historyRes.ok || !historyPayload.dates || !historyPayload.playerSeries) {
       setError(historyPayload.error ?? 'Failed to load score history')
       return
     }
@@ -101,7 +105,6 @@ export default function LeaderboardPage() {
     setHistory({
       dates: historyPayload.dates,
       playerSeries: historyPayload.playerSeries,
-      teamSeries: historyPayload.teamSeries,
     })
     setError('')
   }
@@ -121,15 +124,6 @@ export default function LeaderboardPage() {
     if (rows.length === 0) return 1
     return Math.max(...rows.map((r) => r.totalPoints), 1)
   }, [rows])
-
-  const teamOwnerOptions = useMemo(() => {
-    const owners = new Map<string, string>()
-    for (const series of history.teamSeries) {
-      if (!series.ownerId || !series.ownerName) continue
-      owners.set(series.ownerId, series.ownerName)
-    }
-    return Array.from(owners.entries()).sort((left, right) => left[1].localeCompare(right[1]))
-  }, [history.teamSeries])
 
   const teamRows = useMemo(() => {
     const rowsList: TeamRow[] = []
@@ -154,23 +148,11 @@ export default function LeaderboardPage() {
     })
   }, [rows])
 
-  const visibleSeries = useMemo(() => {
-    if (chartView === 'players') {
-      return history.playerSeries
-    }
-
-    if (teamOwnerFilter === 'all') {
-      return history.teamSeries
-    }
-
-    return history.teamSeries.filter((series) => series.ownerId === teamOwnerFilter)
-  }, [chartView, history.playerSeries, history.teamSeries, teamOwnerFilter])
-
   const chartData = useMemo(() => {
     return {
       labels: history.dates.map((value) => formatWeekdayLabel(value)),
-      datasets: visibleSeries.map((series, index) => ({
-        label: series.ownerName && chartView === 'teams' ? `${series.label} · ${series.ownerName}` : series.label,
+      datasets: history.playerSeries.map((series, index) => ({
+        label: series.label,
         data: series.totals,
         borderColor: series.colour,
         backgroundColor: `${series.colour}22`,
@@ -180,7 +162,7 @@ export default function LeaderboardPage() {
         borderDash: index % 2 === 0 ? [] : [6, 4],
       })),
     }
-  }, [chartView, history.dates, visibleSeries])
+  }, [history.dates, history.playerSeries])
 
   return (
     <main className="app-shell">
@@ -193,43 +175,44 @@ export default function LeaderboardPage() {
 
       {error ? <p className="error-text">{error}</p> : null}
 
+      {/* 1. Player leaderboard cards */}
+      <section className="card leaderboard-list">
+        {rows.map((player, index) => (
+          <article key={player.id} className={`leaderboard-row rank-${index < 3 ? index + 1 : 'other'}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className={`leaderboard-rank-badge ${rankBadgeClass(index)}`}>
+                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                </div>
+                <span className="avatar" style={{ background: player.colour, width: 14, height: 14 }} />
+                <strong style={{ fontSize: '1.05rem' }}>{player.name}</strong>
+              </div>
+              <strong style={{ color: '#ffd87a', fontSize: '1.15rem' }}>{player.totalPoints.toFixed(1)} pts</strong>
+            </div>
+            <div className="bar-wrap">
+              <div className="bar-fill" style={{ width: `${(player.totalPoints / maxScore) * 100}%`, background: player.colour }} />
+            </div>
+            <div className="player-teams-wrap">
+              {player.teams.map((team) => (
+                <span key={team.teamId} className="player-team-chip">
+                  <span>{team.teamName}</span>
+                  <span className="muted">+{team.totalPoints}</span>
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </section>
+
+      {/* 2. Score Progression chart */}
       <section className="card">
         <div className="row split section-toolbar">
           <div>
             <h2 className="subhead">Score Progression</h2>
-            <p className="muted">Player lines show progression by tournament weekday.</p>
-          </div>
-          <div className="row">
-            <button
-              type="button"
-              className={chartView === 'players' ? 'primary-btn' : 'ghost-btn'}
-              onClick={() => setChartView('players')}
-            >
-              Players
-            </button>
-            <button
-              type="button"
-              className={chartView === 'teams' ? 'primary-btn' : 'ghost-btn'}
-              onClick={() => setChartView('teams')}
-            >
-              Teams
-            </button>
-            {chartView === 'teams' ? (
-              <select className="field chart-filter" value={teamOwnerFilter} onChange={(event) => setTeamOwnerFilter(event.target.value)}>
-                <option value="all">All players</option>
-                {teamOwnerOptions.map(([ownerId, ownerName]) => (
-                  <option key={ownerId} value={ownerId}>
-                    {ownerName}
-                  </option>
-                ))}
-              </select>
-            ) : null}
           </div>
         </div>
         {history.dates.length === 0 ? (
-          <p className="muted">No finished matches yet.</p>
-        ) : visibleSeries.length === 0 ? (
-          <p className="muted">No drafted teams for the selected player yet.</p>
+          <p className="muted">Chart will update after the first match day</p>
         ) : (
           <div style={{ height: 280 }}>
             <Line
@@ -239,7 +222,7 @@ export default function LeaderboardPage() {
                 maintainAspectRatio: false,
                 plugins: {
                   legend: {
-                    display: chartView === 'players' || visibleSeries.length <= 12,
+                    display: true,
                     labels: { color: '#9eb3c6' },
                   },
                 },
@@ -259,9 +242,9 @@ export default function LeaderboardPage() {
         )}
       </section>
 
+      {/* 3. Team Points Table */}
       <section className="card">
         <h2 className="subhead">Team Points Table</h2>
-        <p className="muted">Current points by team, including owner and tier multiplier context.</p>
         <div className="team-points-table">
           <div className="team-points-row team-points-head">
             <span>Team</span>
@@ -278,31 +261,6 @@ export default function LeaderboardPage() {
             </div>
           ))}
         </div>
-      </section>
-
-      <section className="card leaderboard-list">
-        {rows.map((player, index) => (
-          <article key={player.id} className="leaderboard-row">
-            <div className="row split">
-              <div className="row" style={{ gap: 10 }}>
-                <span className="rank">#{index + 1}</span>
-                <span className="avatar" style={{ background: player.colour }} />
-                <strong>{player.name}</strong>
-              </div>
-              <strong>{player.totalPoints.toFixed(1)} pts</strong>
-            </div>
-            <div className="bar-wrap">
-              <div className="bar-fill" style={{ width: `${(player.totalPoints / maxScore) * 100}%`, background: player.colour }} />
-            </div>
-            <div className="mini-table">
-              {player.teams.map((team) => (
-                <p key={team.teamId}>
-                  {team.teamName}: {team.basePoints} x {team.multiplier} = {team.totalPoints}
-                </p>
-              ))}
-            </div>
-          </article>
-        ))}
       </section>
     </main>
   )

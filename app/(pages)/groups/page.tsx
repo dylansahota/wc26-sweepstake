@@ -60,7 +60,7 @@ function formatKickoff(value: string) {
 function abbreviateTeamName(teamName: string) {
   const compact = teamName
     .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .replace(/[^A-Za-z0-9 ]+/g, ' ')
     .trim()
 
@@ -82,6 +82,17 @@ function teamTableLabel(team: GroupTeamRow) {
   const code = (team.code ?? '').trim().toUpperCase()
   if (/^[A-Z0-9]{3}$/.test(code)) return code
   return abbreviateTeamName(team.teamName)
+}
+
+function isMatch(team: GroupTeamRow, group: GroupStanding, query: string): boolean {
+  const q = query.toLowerCase().trim()
+  if (!q) return false
+  return (
+    team.teamName.toLowerCase().includes(q) ||
+    (team.ownerName?.toLowerCase().includes(q) ?? false) ||
+    group.name.toLowerCase().includes(q) ||
+    (team.code?.toLowerCase().includes(q) ?? false)
+  )
 }
 
 export default function GroupsPage() {
@@ -112,27 +123,6 @@ export default function GroupsPage() {
       clearInterval(interval)
     }
   }, [])
-
-  const filteredGroups = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    if (!q) return groups
-    return groups
-      .map((group) => ({
-        ...group,
-        teams: group.teams.filter(
-          (team) =>
-            team.teamName.toLowerCase().includes(q) ||
-            team.ownerName?.toLowerCase().includes(q) ||
-            group.name.toLowerCase().includes(q) ||
-            team.code?.toLowerCase().includes(q)
-        ),
-      }))
-      .filter((group) => group.teams.length > 0)
-  }, [groups, search])
-
-  const draftedTeams = useMemo(() => {
-    return groups.flatMap((group) => group.teams).filter((team) => Boolean(team.ownerId)).length
-  }, [groups])
 
   const bestThirdPlaced = useMemo(() => {
     return groups
@@ -169,24 +159,11 @@ export default function GroupsPage() {
         </div>
         <input
           className="field"
-          style={{ maxWidth: 220 }}
-          placeholder="Filter team or player…"
+          style={{ maxWidth: 260 }}
+          placeholder="Search teams or players…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-      </section>
-
-      <section className="summary-grid">
-        <article className="card summary-card">
-          <span className="pill">Best Third Race</span>
-          <h2 className="subhead">8 of 12 third-placed sides reach the round of 32</h2>
-          <p className="muted">Current projection is based on the same points, goal difference, and goals scored ordering used in the tables below.</p>
-        </article>
-        <article className="card summary-card">
-          <span className="pill">Draft Coverage</span>
-          <h2 className="subhead">{draftedTeams} of 48 teams already owned</h2>
-          <p className="muted">Use any team row to open a fixture drawer with owner, ranking, and group schedule context.</p>
-        </article>
       </section>
 
       {error ? <p className="error-text">{error}</p> : null}
@@ -195,13 +172,9 @@ export default function GroupsPage() {
         <section className="card">
           <p className="muted">Loading standings…</p>
         </section>
-      ) : filteredGroups.length === 0 ? (
-        <section className="card">
-          <p className="muted">No groups match your search.</p>
-        </section>
       ) : (
         <div className="groups-grid">
-          {filteredGroups.map((group) => (
+          {groups.map((group) => (
             <section key={group.name} className="card group-card">
               <h2 className="subhead group-heading">Group {group.name}</h2>
               <div className="standings-table">
@@ -220,7 +193,11 @@ export default function GroupsPage() {
                   <button
                     key={team.teamId}
                     type="button"
-                    className={`standings-row${index < 2 ? ' qualify-zone' : ''}`}
+                    className={[
+                      'standings-row',
+                      index < 2 ? 'qualify-zone' : '',
+                      search.trim() ? (isMatch(team, group, search) ? 'search-match' : 'search-dim') : '',
+                    ].filter(Boolean).join(' ')}
                     onClick={() => setSelectedTeam({ groupName: group.name, teamId: team.teamId })}
                   >
                     <span className="standings-team-col">

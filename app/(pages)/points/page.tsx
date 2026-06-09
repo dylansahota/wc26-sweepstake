@@ -17,8 +17,8 @@ const SCORING_ROWS = [
 
 const MULTIPLIER_ROWS = [
   { tier: 'Tier 1 team', multiplier: 'x1' },
-  { tier: 'Tier 2 team', multiplier: 'x2' },
-  { tier: 'Tier 3 team', multiplier: 'x3' },
+  { tier: 'Tier 2 team', multiplier: 'x1.5' },
+  { tier: 'Tier 3 team', multiplier: 'x2' },
 ]
 
 export default function PointsPage() {
@@ -55,7 +55,7 @@ export default function PointsPage() {
             ))}
           </div>
           <p className="muted points-note">
-            Example: a Tier 3 team with +9 base points from a stage jump gives +27 to the owning player.
+            Example: a Tier 3 team with +9 base points from a stage jump gives +18 to the owning player.
           </p>
         </article>
       </section>

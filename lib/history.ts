@@ -176,7 +176,7 @@ export function buildScoringHistory(
 
   let currentDateKey = ''
   for (const match of sortedMatches) {
-    const dateKey = match.kickoff_utc.slice(0, 10)
+    const dateKey = new Date(match.kickoff_utc).toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
     if (currentDateKey && dateKey !== currentDateKey) {
       snapshot(currentDateKey)
     }

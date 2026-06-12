@@ -149,17 +149,20 @@ export default function LeaderboardPage() {
   }, [rows])
 
   const chartData = useMemo(() => {
+    const CHART_START = '2026-06-10'
+    const needsStart = history.dates.length === 0 || history.dates[0] > CHART_START
+    const dates = needsStart ? [CHART_START, ...history.dates] : history.dates
+
     return {
-      labels: history.dates.map((value) => formatWeekdayLabel(value)),
-      datasets: history.playerSeries.map((series, index) => ({
+      labels: dates.map((value) => formatWeekdayLabel(value)),
+      datasets: history.playerSeries.map((series) => ({
         label: series.label,
-        data: series.totals,
+        data: needsStart ? [0, ...series.totals] : series.totals,
         borderColor: series.colour,
         backgroundColor: `${series.colour}22`,
         tension: 0.25,
         borderWidth: 2,
         pointRadius: 2,
-        borderDash: index % 2 === 0 ? [] : [6, 4],
       })),
     }
   }, [history.dates, history.playerSeries])

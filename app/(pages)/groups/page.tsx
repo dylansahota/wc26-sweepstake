@@ -252,7 +252,7 @@ export default function GroupsPage() {
               <span>Pos</span>
               <span>Team</span>
               <span>Group</span>
-              <span>P</span>
+              <span>Pts</span>
               <span>GD</span>
               <span>GF</span>
               <span>Owner</span>

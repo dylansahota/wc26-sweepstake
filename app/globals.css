@@ -1347,6 +1347,17 @@ select {
   .bracket-grid {
     grid-template-columns: 1fr 1fr;
   }
+
+  /* Best-third table: hide GD and GF, keep Pts and Owner */
+  .best-third-row {
+    grid-template-columns: 32px minmax(0, 1.2fr) 44px 40px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .best-third-row > span:nth-child(5),
+  .best-third-row > span:nth-child(6) {
+    display: none;
+  }
 }
 
 @media (max-width: 479px) {
@@ -1358,28 +1369,32 @@ select {
     grid-template-columns: 1fr;
   }
 
+  /* Best-third table: also hide Group on tiny screens — Pos, Team, Pts, Owner only */
   .best-third-row {
-    grid-template-columns: 28px minmax(0, 1fr) 40px 36px 44px 36px;
+    grid-template-columns: 26px minmax(0, 1fr) 36px minmax(0, 1fr);
     gap: 4px;
     font-size: 0.78rem;
     padding: 7px 8px;
   }
 
-  .best-third-row > .bt-pts-col {
+  .best-third-row > span:nth-child(3) {
     display: none;
   }
 
   .standings-header,
   .standings-row {
-    grid-template-columns: minmax(0, 1fr) repeat(6, minmax(24px, 24px));
+    grid-template-columns: minmax(0, 1fr) repeat(5, minmax(24px, 24px));
     gap: 2px;
     font-size: 0.78rem;
   }
 
+  /* Hide GF, GA, GD on tiny screens — keep Pts visible */
+  .standings-row > span:nth-child(6),
+  .standings-row > span:nth-child(7),
   .standings-row > span:nth-child(8),
-  .standings-row > span:nth-child(9),
-  .standings-header > span:nth-child(8),
-  .standings-header > span:nth-child(9) {
+  .standings-header > span:nth-child(6),
+  .standings-header > span:nth-child(7),
+  .standings-header > span:nth-child(8) {
     display: none;
   }
 

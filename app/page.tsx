@@ -15,7 +15,7 @@ export default function Home() {
       .then((res) => res.json())
       .then((payload: { session?: unknown }) => {
         if (payload.session) {
-          router.replace('/draft')
+          router.replace('/leaderboard')
         }
       })
   }, [router])
@@ -38,7 +38,7 @@ export default function Home() {
     }
 
     setError('')
-    router.push('/draft')
+    router.push('/leaderboard')
     router.refresh()
   }
 

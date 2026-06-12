@@ -248,26 +248,36 @@ export default function GroupsPage() {
             <span className="pill">Live Projection</span>
           </div>
           <div className="best-third-table">
-            <div className="best-third-row best-third-head">
-              <span>Pos</span>
-              <span>Team</span>
-              <span>Group</span>
+            <div className="standings-header">
+              <span className="standings-team-col">Team</span>
+              <span>P</span>
+              <span>W</span>
+              <span>D</span>
+              <span>L</span>
               <span>Pts</span>
-              <span>GD</span>
-              <span>GF</span>
-              <span>Owner</span>
             </div>
             {bestThirdPlaced.map((team, index) => (
-              <div key={team.teamId} className={`best-third-row${index < 8 ? ' in-cut' : ''}`}>
-                <span>{index + 1}</span>
-                <span>
-                  <strong>{team.teamName}</strong>
+              <div key={team.teamId} className={`standings-row${index < 8 ? ' qualify-zone' : ''}`}>
+                <span className="standings-team-col">
+                  <span className="standings-pos" style={{ color: index < 8 ? 'var(--teal)' : 'var(--muted)' }}>
+                    {index + 1}
+                  </span>
+                  <span>
+                    <span className="standings-name" title={team.teamName}>{team.teamName}</span>
+                    {team.ownerName ? (
+                      <span className="standings-owner" style={{ color: team.ownerColour ?? 'var(--muted)' }}>
+                        {team.ownerName}{team.tier ? ` · T${team.tier}` : ''}
+                      </span>
+                    ) : (
+                      <span className="standings-owner undrafted">Undrafted</span>
+                    )}
+                  </span>
                 </span>
-                <span>{team.groupName}</span>
-                <span>{team.points}</span>
-                <span>{team.goalDifference >= 0 ? `+${team.goalDifference}` : team.goalDifference}</span>
-                <span>{team.goalsFor}</span>
-                <span style={{ color: team.ownerColour ?? 'var(--muted)' }}>{team.ownerName ?? 'Undrafted'}</span>
+                <span>{team.played}</span>
+                <span>{team.won}</span>
+                <span>{team.drawn}</span>
+                <span>{team.lost}</span>
+                <span className="standings-pts">{team.points}</span>
               </div>
             ))}
           </div>

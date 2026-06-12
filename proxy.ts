@@ -20,7 +20,7 @@ export async function proxy(req: NextRequest) {
     if (pathname.startsWith('/admin')) {
       const name = typeof payload.name === 'string' ? payload.name : ''
       if (name.trim().toLowerCase() !== 'dylan') {
-        return NextResponse.redirect(new URL('/draft', req.url))
+        return NextResponse.redirect(new URL('/leaderboard', req.url))
       }
     }
     return NextResponse.next()

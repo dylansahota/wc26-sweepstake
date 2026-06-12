@@ -684,29 +684,10 @@ select {
   gap: 6px;
 }
 
-.best-third-row {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1.4fr) 60px 50px 60px 50px minmax(0, 1fr);
-  gap: 10px;
-  align-items: center;
-  padding: 10px 12px;
-  border: 1px solid #22222e44;
-  border-radius: 10px;
-  background: #111118;
-  font-size: 0.9rem;
-}
-
-.best-third-head {
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.72rem;
-  background: transparent;
-}
-
-.best-third-row.in-cut {
-  border-color: #f7b53855;
-  background: #f7b53812;
+/* Best-third table reuses standings-row/header — override grid for 6 cols (team + P W D L Pts) */
+.best-third-table .standings-header,
+.best-third-table .standings-row {
+  grid-template-columns: minmax(0, 1fr) repeat(5, minmax(28px, 28px));
 }
 
 .group-card {
@@ -1261,12 +1242,6 @@ select {
     justify-items: start;
   }
 
-  .best-third-row {
-    grid-template-columns: 34px minmax(0, 1.2fr) 48px 42px 52px 42px minmax(0, 1fr);
-    gap: 6px;
-    font-size: 0.82rem;
-    padding: 8px 10px;
-  }
 
   .details-drawer {
     width: 100%;
@@ -1348,16 +1323,6 @@ select {
     grid-template-columns: 1fr 1fr;
   }
 
-  /* Best-third table: hide GD and GF, keep Pts and Owner */
-  .best-third-row {
-    grid-template-columns: 32px minmax(0, 1.2fr) 44px 40px minmax(0, 1fr);
-    gap: 6px;
-  }
-
-  .best-third-row > span:nth-child(5),
-  .best-third-row > span:nth-child(6) {
-    display: none;
-  }
 }
 
 @media (max-width: 479px) {
@@ -1369,16 +1334,9 @@ select {
     grid-template-columns: 1fr;
   }
 
-  /* Best-third table: also hide Group on tiny screens — Pos, Team, Pts, Owner only */
-  .best-third-row {
-    grid-template-columns: 26px minmax(0, 1fr) 36px minmax(0, 1fr);
-    gap: 4px;
-    font-size: 0.78rem;
-    padding: 7px 8px;
-  }
-
-  .best-third-row > span:nth-child(3) {
-    display: none;
+  .best-third-table .standings-header,
+  .best-third-table .standings-row {
+    grid-template-columns: minmax(0, 1fr) repeat(5, minmax(24px, 24px));
   }
 
   .standings-header,
@@ -1388,13 +1346,13 @@ select {
     font-size: 0.78rem;
   }
 
-  /* Hide GF, GA, GD on tiny screens — keep Pts visible */
-  .standings-row > span:nth-child(6),
-  .standings-row > span:nth-child(7),
-  .standings-row > span:nth-child(8),
-  .standings-header > span:nth-child(6),
-  .standings-header > span:nth-child(7),
-  .standings-header > span:nth-child(8) {
+  /* Hide GF, GA, GD in group cards only — scoped so best-third Pts (also col 6) stays visible */
+  .groups-grid .standings-row > span:nth-child(6),
+  .groups-grid .standings-row > span:nth-child(7),
+  .groups-grid .standings-row > span:nth-child(8),
+  .groups-grid .standings-header > span:nth-child(6),
+  .groups-grid .standings-header > span:nth-child(7),
+  .groups-grid .standings-header > span:nth-child(8) {
     display: none;
   }
 

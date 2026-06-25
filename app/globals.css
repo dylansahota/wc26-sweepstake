@@ -1346,7 +1346,11 @@ select {
   }
 
   .bracket-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  .bracket-matches-r32 {
+    grid-template-columns: 1fr;
   }
 
 }

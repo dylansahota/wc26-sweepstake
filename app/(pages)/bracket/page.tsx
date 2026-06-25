@@ -39,9 +39,9 @@ function formatKickoff(value: string) {
 function MatchCard({ match }: { match: BracketMatch }) {
   const homeConfirmed = !match.homeRoute || match.homeName !== match.homeRoute
   const awayConfirmed = !match.awayRoute || match.awayName !== match.awayRoute
-  const showRoute = (Boolean(match.homeRoute) || Boolean(match.awayRoute)) && (!homeConfirmed || !awayConfirmed)
+  const showRoute = !homeConfirmed && !awayConfirmed && (Boolean(match.homeRoute) || Boolean(match.awayRoute))
   const hasScore = match.home_score != null || match.away_score != null
-  const showScoreline = (homeConfirmed && awayConfirmed) || hasScore
+  const showScoreline = homeConfirmed || awayConfirmed || hasScore
 
   return (
     <div className="bracket-match">

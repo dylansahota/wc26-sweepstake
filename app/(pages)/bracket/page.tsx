@@ -37,13 +37,11 @@ function formatKickoff(value: string) {
 }
 
 function MatchCard({ match }: { match: BracketMatch }) {
+  const homeConfirmed = !match.homeRoute || match.homeName !== match.homeRoute
+  const awayConfirmed = !match.awayRoute || match.awayName !== match.awayRoute
+  const showRoute = (Boolean(match.homeRoute) || Boolean(match.awayRoute)) && (!homeConfirmed || !awayConfirmed)
   const hasScore = match.home_score != null || match.away_score != null
-  const routeOnly = Boolean(match.homeRoute && match.awayRoute)
-  const isDuplicateRouteText =
-    routeOnly &&
-    match.homeName === match.homeRoute &&
-    match.awayName === match.awayRoute &&
-    !hasScore
+  const showScoreline = (homeConfirmed && awayConfirmed) || hasScore
 
   return (
     <div className="bracket-match">
@@ -55,20 +53,20 @@ function MatchCard({ match }: { match: BracketMatch }) {
         )}
         <span className={`fixture-status ${match.status}`}>{match.status}</span>
       </div>
-      {match.homeRoute || match.awayRoute ? (
+      {showRoute ? (
         <p className="bracket-route">
           {match.homeRoute ?? match.homeName} vs {match.awayRoute ?? match.awayName}
         </p>
       ) : null}
       <p className="muted bracket-kickoff">{formatKickoff(match.kickoff_utc)}</p>
-      {!isDuplicateRouteText ? (
-        <p className="bracket-scoreline">
-          <span className="bracket-team-name">{match.homeName}</span>
+      {showScoreline ? (
+        <div className="bracket-scoreline">
+          <span className="bracket-team-name bracket-home-name">{match.homeName}</span>
           <span className="bracket-score-value">
-            {match.home_score ?? '-'} - {match.away_score ?? '-'}
+            {match.home_score ?? '–'}&nbsp;–&nbsp;{match.away_score ?? '–'}
           </span>
-          <span className="bracket-team-name">{match.awayName}</span>
-        </p>
+          <span className="bracket-team-name bracket-away-name">{match.awayName}</span>
+        </div>
       ) : null}
     </div>
   )

@@ -1,15 +1,16 @@
 import type { Metadata } from 'next'
-import { Manrope, Space_Grotesk } from 'next/font/google'
+import { Outfit, Oswald } from 'next/font/google'
 import './globals.css'
 
-const sans = Manrope({
+const sans = Outfit({
   variable: '--font-sans',
   subsets: ['latin'],
 })
 
-const display = Space_Grotesk({
+const display = Oswald({
   variable: '--font-display',
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
 })
 
 export const metadata: Metadata = {

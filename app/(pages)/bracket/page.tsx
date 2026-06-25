@@ -28,46 +28,54 @@ const STAGE_LABELS: Record<string, string> = {
 }
 
 function formatKickoff(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value))
+  const date = new Date(value)
+  const day = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  return `${day} · ${time}`
+}
+
+function TeamSlot({ name, route, align }: {
+  name: string
+  route?: string
+  align: 'left' | 'right'
+}) {
+  const confirmed = !route || name !== route
+  return (
+    <div className={`bracket-team-slot bracket-team-slot--${align}`}>
+      {confirmed ? (
+        <span className="bracket-team-slot-name">{name}</span>
+      ) : (
+        <span className="bracket-team-slot-tbd" style={{ textAlign: align }}>
+          {route ?? 'TBD'}
+        </span>
+      )}
+    </div>
+  )
 }
 
 function MatchCard({ match }: { match: BracketMatch }) {
-  const homeConfirmed = !match.homeRoute || match.homeName !== match.homeRoute
-  const awayConfirmed = !match.awayRoute || match.awayName !== match.awayRoute
-  const showRoute = !homeConfirmed && !awayConfirmed && (Boolean(match.homeRoute) || Boolean(match.awayRoute))
-  const hasScore = match.home_score != null || match.away_score != null
-  const showScoreline = homeConfirmed || awayConfirmed || hasScore
+  const finished = match.status === 'finished'
+  const hasScore = match.home_score != null && match.away_score != null
 
   return (
     <div className="bracket-match">
-      <div className="row split bracket-meta">
-        {match.matchLabel ? (
-          <p className="bracket-match-label">{match.matchLabel}</p>
-        ) : (
-          <span />
-        )}
-        <span className={`fixture-status ${match.status}`}>{match.status}</span>
+      <div className="bracket-match-header">
+        <span className="bracket-match-label">{match.matchLabel ?? ''}</span>
+        <span className="bracket-kickoff">{formatKickoff(match.kickoff_utc)}</span>
       </div>
-      {showRoute ? (
-        <p className="bracket-route">
-          {match.homeRoute ?? match.homeName} vs {match.awayRoute ?? match.awayName}
-        </p>
-      ) : null}
-      <p className="muted bracket-kickoff">{formatKickoff(match.kickoff_utc)}</p>
-      {showScoreline ? (
-        <div className="bracket-scoreline">
-          <span className="bracket-team-name bracket-home-name">{match.homeName}</span>
-          <span className="bracket-score-value">
-            {match.home_score ?? '–'}&nbsp;–&nbsp;{match.away_score ?? '–'}
-          </span>
-          <span className="bracket-team-name bracket-away-name">{match.awayName}</span>
+      <div className="bracket-matchup">
+        <TeamSlot name={match.homeName} route={match.homeRoute} align="left" />
+        <div className="bracket-score-block">
+          {finished && hasScore ? (
+            <span className="bracket-score-value">
+              {match.home_score}–{match.away_score}
+            </span>
+          ) : (
+            <span className="bracket-vs">vs</span>
+          )}
         </div>
-      ) : null}
+        <TeamSlot name={match.awayName} route={match.awayRoute} align="right" />
+      </div>
     </div>
   )
 }
@@ -88,14 +96,9 @@ export default function BracketPage() {
   }
 
   useEffect(() => {
-    const initial = setTimeout(() => {
-      void load()
-    }, 0)
+    const initial = setTimeout(() => { void load() }, 0)
     const interval = setInterval(load, 12000)
-    return () => {
-      clearTimeout(initial)
-      clearInterval(interval)
-    }
+    return () => { clearTimeout(initial); clearInterval(interval) }
   }, [])
 
   const grouped = useMemo(() => {
@@ -115,25 +118,27 @@ export default function BracketPage() {
 
       <section className="card">
         <h1 className="title">Knockout Bracket</h1>
-        <p className="muted">Route labels show qualifying paths until teams are confirmed.</p>
+        <p className="muted">Teams fill in as groups complete · updates on every sync</p>
       </section>
 
       {error ? <p className="error-text">{error}</p> : null}
 
-      <section className="bracket-grid">
-        {STAGE_ORDER.map((stage) => (
-          <article key={stage} className="card bracket-stage-card">
-            <div className="row split bracket-stage-head">
-              <h2 className="subhead">{STAGE_LABELS[stage]}</h2>
+      <div className="bracket-grid">
+        {STAGE_ORDER.map((stage) => {
+          const stageMatches = grouped.get(stage) ?? []
+          if (stageMatches.length === 0) return null
+          return (
+            <div key={stage} className="bracket-round-card">
+              <p className="bracket-round-label">{STAGE_LABELS[stage]}</p>
+              <div className={stage === 'R32' ? 'bracket-matches-r32' : 'bracket-matches-list'}>
+                {stageMatches.map((match) => (
+                  <MatchCard key={match.id} match={match} />
+                ))}
+              </div>
             </div>
-            <div className="mini-table">
-              {(grouped.get(stage) ?? []).map((match) => (
-                <MatchCard key={match.id} match={match} />
-              ))}
-            </div>
-          </article>
-        ))}
-      </section>
+          )
+        })}
+      </div>
     </main>
   )
 }

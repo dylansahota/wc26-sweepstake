@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/api-auth'
 import { syncMatchesFromFootballData } from '@/lib/football-data'
 import { recalculateTeamProgressFromMatches } from '@/lib/progress'
+import { populateGroupQualifiers } from '@/lib/bracket-slots'
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
@@ -15,6 +16,7 @@ export async function POST(req: NextRequest) {
 
   const syncedMatches = await syncMatchesFromFootballData()
   await recalculateTeamProgressFromMatches()
+  await populateGroupQualifiers()
 
   return NextResponse.json({ ok: true, syncedMatches })
 }
